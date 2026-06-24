@@ -1,0 +1,49 @@
+project: governance-overhead-harness
+doc: MANIFEST
+version: 1.1.0
+created: 2026-06-22
+org: CARE Institute
+schema_version: "1.0.0"
+
+summary: >
+  Canonical, hardened, self-contained package to rerun the MLSys 2027
+  "Cost of Governance" experiment to peer-review standard. Measures the
+  latency, token, and cost overhead of a nine-layer agent governance stack.
+
+license: Apache-2.0
+
+components:
+  - name: harness_benchmark.py
+    role: measurement events, durable JSONL logger, cost computation, run manifest
+    schema: harness-1.0
+  - name: governance_layers.py
+    role: the nine governance layers (L0-L8) and the block-on-first-fail stack runner
+  - name: provider_adapters.py
+    role: native cloud provider adapters (published v3 set)
+  - name: extra_adapters.py
+    role: local Ollama adapter, gated OpenRouter gateway, prefix-aware adapter factory
+  - name: calibration.py
+    role: harness-overhead self-test and per-provider concurrency semaphores
+  - name: validators.py
+    role: output validators for completed runs
+  - name: experiment_runner_v3.py
+    role: reference live runner
+    version: v3.01
+  - name: analysis_v4.py
+    role: statistical analysis and paper tables
+    version: v4
+  - name: run_experiment.py
+    role: clean CLI runner — smoke (local, zero spend) and full (gated external)
+
+data:
+  task_suite: data/task_suite.json   # 150 tasks, Tier 1/2/3 x 50
+
+pricing:
+  date: 2026-06-22
+  openrouter_routes: live OpenRouter catalog (confirmed 2026-06-22)
+  native_table: pinned April 2026
+
+reproduction:
+  full: 150 tasks (Tier 1/2/3), temperature 0 + seed, OpenRouter gateway
+  published_subset: Tier 1+2 (100 tasks)
+  external_send: gated off by default

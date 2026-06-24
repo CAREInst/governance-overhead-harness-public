@@ -1,0 +1,18 @@
+# Run outputs — regenerated; integrity tracked via manifest sha256, not git
+results/
+
+# Caches
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.DS_Store
+
+# Secrets / keystore — NEVER commit
+*.db
+*.sqlite
+*.sqlite3
+.keystore*
+*.key
+*.pem
+.env

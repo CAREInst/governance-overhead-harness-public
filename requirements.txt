@@ -1,0 +1,13 @@
+# governance-overhead-harness — runtime dependencies (Python 3.12+)
+#
+# The local "smoke" path (Ollama) uses only the Python standard library —
+# no third-party packages are required to validate the harness end-to-end.
+#
+# The live "full" path via OpenRouter (OpenAI-compatible API) needs:
+openai>=1.0
+#
+# Optional — only if you call the native (non-OpenRouter) provider adapters
+# in provider_adapters.py; both are imported lazily, so they are not needed
+# unless you select that provider:
+#   anthropic            # native Anthropic adapter
+#   google-generativeai  # native Google adapter
