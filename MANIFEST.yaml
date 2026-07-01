@@ -1,6 +1,6 @@
 project: governance-overhead-harness
 doc: MANIFEST
-version: 1.1.0
+version: 1.3.3
 created: 2026-06-22
 org: CARE Institute
 schema_version: "1.0.0"
@@ -33,10 +33,12 @@ components:
     role: statistical analysis and paper tables
     version: v4
   - name: run_experiment.py
-    role: clean CLI runner — smoke (local, zero spend) and full (gated external)
+    role: clean CLI runner — smoke (local, zero spend), full (gated external), sweep (multi-model)
+  - name: make_data_summary.py
+    role: compact per-config digest of a run's JSONL
 
 data:
-  task_suite: data/task_suite.json   # 150 tasks, Tier 1/2/3 x 50
+  task_suite: data/task_suite.json   # 171 tasks: 150 Tier 1/2/3 x 50 + 21 false-positive probes
 
 pricing:
   date: 2026-06-22
@@ -44,6 +46,6 @@ pricing:
   native_table: pinned April 2026
 
 reproduction:
-  full: 150 tasks (Tier 1/2/3), temperature 0 + seed, OpenRouter gateway
+  full: 150 tasks (Tier 1/2/3) + 21 false-positive probes, temperature 0 + seed, OpenRouter gateway
   published_subset: Tier 1+2 (100 tasks)
   external_send: gated off by default

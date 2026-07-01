@@ -72,4 +72,4 @@ python3 analysis_v4.py ../results/full        # statistical analysis over the ru
 
 - Pinning the exact OpenRouter route ids + pricing for the final table.
 - Reconciling the rerun's per-layer numbers against the published v3/v4 data.
-- The decision to publish/push results.
+- The decision to publish/push results — always a manual, explicit operator step.

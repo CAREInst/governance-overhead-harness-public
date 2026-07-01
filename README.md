@@ -1,7 +1,7 @@
 ---
 project: governance-overhead-harness
 doc: README
-version: 1.1.0
+version: 1.3.3
 created: 2026-06-22
 org: CARE Institute
 schema_version: "1.0.0"
@@ -22,6 +22,17 @@ tasks twice: with the layers off, and with the layers on. For each call it
 records latency, tokens, and dollars. It then reports the harness overhead as a
 share of the API latency.
 
+This is governance-*orchestration* overhead: metering, attribution, policy
+bookkeeping, and pre/post checks around the model call. It is not the cost of
+a safety-classifier's own inference (an extra model call to judge the first
+one). The two are not comparable; see `CITATIONS.md` before citing the headline
+number against a guardrail system that runs extra inferences.
+
+The suite also measures detection quality: 20 injected failures (ground truth)
+and 21 purpose-built benign probes that carry governance trigger words
+(`delete`, `production`, `override`, ...) in innocuous contexts, so precision
+is measured against real false-positive pressure, not an easy negative set.
+
 ## Layout
 
 ```
@@ -35,11 +46,14 @@ governance-overhead-harness/
 │   ├── validators.py            output validators
 │   ├── analysis_v4.py           statistics + paper tables
 │   ├── experiment_runner_v3.py  reference runner
-│   └── run_experiment.py        CLI: smoke + full
-├── data/task_suite.json         150 tasks (Tier 1/2/3 x 50)
+│   ├── run_experiment.py        CLI: smoke + full + sweep
+│   └── make_data_summary.py     compact per-config JSONL digest
+├── data/task_suite.json         171 tasks (150 Tier 1/2/3 x 50 + 21 false-positive probes)
 ├── results/                     run outputs (gitignored; tracked via manifest)
 ├── ARCHITECTURE.md              how the parts fit
 ├── CHANGELOG.md                 version history
+├── CITATIONS.md                 grounding for modeled parameters + prior-art positioning
+├── DATA_QUALITY.md              per-model data-quality audit and fixes
 ├── MANIFEST.yaml                components + license
 ├── PREFLIGHT.md                 go/no-go checklist
 └── OPERATORS_MANUAL.md          run procedure
@@ -65,21 +79,55 @@ python3 run_experiment.py smoke --model ollama/<your-model> --tasks 3
 ## Live run
 
 A full run sends data to OpenRouter and spends money. It stays shut off until
-you opt in. You must pass `--allow-external` and load an API key. The gate is
-shut by default. See `PREFLIGHT.md` and `OPERATORS_MANUAL.md` first.
+you opt in. You must pass `--allow-external` and set `OPENROUTER_API_KEY`. The
+gate is shut by default. See `PREFLIGHT.md` and `OPERATORS_MANUAL.md` first.
 
 ```bash
 cd code
+export OPENROUTER_API_KEY=sk-or-...
 python3 run_experiment.py full --model openrouter/anthropic/claude-sonnet-4.5 \
-        --runs 5 --max-usd 40 --allow-external
+        --runs 5 --max-usd 40 --all-tiers --allow-external
 ```
+
+Three knobs are recorded in the run manifest for provenance, and can be varied
+to reproduce the ablations in the paper:
+
+| Flag | Values | What it varies |
+|---|---|---|
+| `--preamble` | `none`, `short`, `medium`, `long` | L4 policy-preamble length — token overhead as a function of length, not one fixed point |
+| `--l8-mode` | `execute` (default), `measure_only` | whether L8's plan is threaded into the executed prompt, or only its round-trip cost is measured |
+| `--additivity` | flag | also runs isolated single-layer configs, for a real (non-telescoping) additivity test |
+
+## Multi-model sweep
+
+`sweep` mode runs the same suite across several models, for cross-model
+invariance evidence. A free local Ollama leg can run alongside the paid ones:
+
+```bash
+cd code
+export OPENROUTER_API_KEY=sk-or-...
+python3 run_experiment.py sweep --model-set cheap --include-ollama \
+        --runs 5 --all-tiers --max-usd-total 25 --allow-external
+```
+
+`--max-usd-total` is a hard cap across every model in the sweep; `--max-usd`
+still caps each model individually. `--models <id> <id> ...` overrides
+`--model-set` with an explicit list. See `DATA_QUALITY.md` for what to expect
+if a specific route is unreliable that day — this happened during our own
+collection and is documented there rather than silently retried away.
 
 ## Reproduction target
 
-- Full 150-task suite (Tier 1/2/3).
-- Determinism pinned: temperature 0 plus a seed.
+- Full 150-task suite (Tier 1/2/3), plus 21 purpose-built false-positive
+  probes (`fp_negative`) for precision/recall measurement.
+- Determinism pinned: temperature 0 plus a seed (live-API responses are not
+  bitwise-reproducible; see `DATA_QUALITY.md`).
 - One gateway: OpenRouter. External send is off by default.
 - Published subset: Tier 1+2, which is 100 tasks.
+- Cross-model invariance: the paper's headline detection metric
+  (`precision_hard`) was reproduced identically across five models spanning
+  three providers via `sweep` mode. See `CHANGELOG.md` and `DATA_QUALITY.md`
+  for the exact set and each model's data-quality notes.
 
 ## Provenance
 

@@ -25,7 +25,12 @@ from typing import Optional
 # the run manifest and reflects the live-run (OpenRouter) pricing date.
 
 PRICING_DATE = "2026-06-22"
-SCHEMA_VERSION = "harness-1.0"
+# harness-1.1: added Track-B fields (planning_api_ms, planning_cost_usd,
+# hitl_wait_ms, token_overhead, prompt_modified, injection_sanitized,
+# output_modified) and the v1.2.0 governance knobs in the run manifest.
+# harness-1.2: real plan-then-execute L8 (plan_chars, plan_injected); the plan
+# is threaded into the executed main prompt under L8_MODE=execute.
+SCHEMA_VERSION = "harness-1.2"
 
 PRICING = {
     # Anthropic
@@ -93,6 +98,17 @@ class MeasurementEvent:
     harness_latency_ms: float = 0.0
     total_latency_ms: float = 0.0
 
+    # Track-B metrics: real plan-reflect round-trip + modeled human review.
+    # planning_* capture the L8 planning API call (excluded from harness_latency
+    # so the two costs stay separable). hitl_wait_ms is the MODELED human
+    # decision latency for L7 escalations — reported separately from harness
+    # cost, never folded into it.
+    planning_api_ms: float = 0.0
+    planning_cost_usd: float = 0.0
+    plan_chars: int = 0              # length of the L8 plan text
+    plan_injected: bool = False      # plan was threaded into the executed main prompt
+    hitl_wait_ms: float = 0.0
+
     # Financial metrics (USD)
     api_cost_usd: float = 0.0
     harness_cost_usd: float = 0.0
@@ -102,6 +118,12 @@ class MeasurementEvent:
     governance_layer: str = ""
     governance_decision: str = ""    # pass | block | modify
     governance_detail: str = ""
+
+    # I/O-mutation tracking (Track B): governance genuinely transforms I/O.
+    token_overhead: int = 0          # input-token delta vs the L0 baseline
+    prompt_modified: bool = False    # any pre-API layer rewrote the prompt (incl. L4 preamble)
+    injection_sanitized: bool = False  # L5 specifically neutralized an injection span
+    output_modified: bool = False    # L6 redacted the model response
 
     # Task metrics
     task_completed: bool = False

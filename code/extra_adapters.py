@@ -13,7 +13,12 @@ Model-string convention (the prefix selects the adapter):
   openrouter/<vendor>/<model>       -> OpenRouterAdapter    (e.g. openrouter/openai/gpt-4.1-mini)
   <native key>                      -> the original adapter (Anthropic/OpenAI/...)
 
-The clean runner imports get_adapter from THIS module so the prefixes work.
+Adapter wiring: experiment_runner_v3.py imports the base get_adapter from
+provider_adapters; run_experiment.py then rebinds the runner module's
+get_adapter to THIS module's prefix-aware factory
+(`R.get_adapter = extra_adapters.get_adapter`), so ollama/* and openrouter/*
+prefixes resolve at call time. Run via run_experiment.py for the prefixes to
+take effect.
 """
 
 import json
@@ -103,14 +108,28 @@ class OpenRouterAdapter(ProviderAdapter):
         def _do():
             return self._get_client().chat.completions.create(
                 model=self._route, messages=oai, max_completion_tokens=1024,
-                temperature=0, seed=experiment_seed())
+                temperature=0, seed=experiment_seed(),
+                # OpenRouter omits `usage` for some upstream/open-weight routes
+                # unless explicitly requested; without this, resp.usage is None
+                # and crashes token accounting (confirmed: 100% of mistral-small's
+                # failures in the 2026-06-29 sweep were this exact crash).
+                extra_body={"usage": {"include": True}})
 
         resp = await asyncio.to_thread(_do)
         ch = resp.choices[0]
+        usage = resp.usage
+        if usage is None:
+            # Still missing even with usage-accounting requested — surface a
+            # clear, distinct error rather than crash on attribute access, so
+            # this failure mode is never silently conflated with a governance
+            # decision or a generic API error in the dataset.
+            raise RuntimeError(
+                f"OpenRouter returned no usage data for route {self._route!r} "
+                f"even with usage.include=true")
         return UnifiedResponse(
             text=ch.message.content or "",
-            input_tokens=resp.usage.prompt_tokens,
-            output_tokens=resp.usage.completion_tokens,
+            input_tokens=usage.prompt_tokens,
+            output_tokens=usage.completion_tokens,
             provider="openrouter", model=self.model,
             stop_reason=ch.finish_reason)
 

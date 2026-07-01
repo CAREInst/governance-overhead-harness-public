@@ -41,7 +41,14 @@ class UnifiedResponse:
 class ProviderAdapter:
     """Base class for provider adapters."""
 
-    MAX_RETRIES = 3
+    # Retry budget applies UNIFORMLY to every adapter/model — it only changes
+    # the tail of calls that were failing outright (transient connection/rate
+    # errors); a call that already succeeds within the old budget is unaffected,
+    # so this does not alter latency semantics for any previously-collected
+    # data. Bumped 3->5 after the 2026-06-29 sweep showed a persistently
+    # overloaded OpenRouter backend for meta-llama/llama-3.3-70b-instruct
+    # (532 "Connection error" failures even after 3 attempts).
+    MAX_RETRIES = 5
     BASE_DELAY = 1.0
 
     def __init__(self, model: str, provider: str):
@@ -64,7 +71,12 @@ class ProviderAdapter:
                 # Retry on rate limits, timeouts, and transient network errors
                 retryable = any(k in err_str for k in [
                     "rate", "429", "timeout", "connection",
-                    "temporarily", "503", "502", "overloaded"])
+                    "temporarily", "503", "502", "overloaded",
+                    # OpenRouter's usage-accounting metadata can be missing on a
+                    # transient basis (confirmed 2026-06-29: 59/60 calls failed
+                    # this way in a live run, then 5/5 succeeded on immediate
+                    # retest) — treat as retryable rather than a permanent error.
+                    "no usage data"])
                 if retryable and attempt < self.MAX_RETRIES - 1:
                     delay = self.BASE_DELAY * (2 ** attempt)
                     print(f"  ⚠️ {self.provider} retry {attempt+1}/{self.MAX_RETRIES}: {str(e)[:100]}")

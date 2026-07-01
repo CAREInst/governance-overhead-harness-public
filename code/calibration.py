@@ -21,21 +21,26 @@ def measure_harness_overhead(n_iterations: int = 1000) -> dict:
     """
     text = "What is the weather in Tokyo today? Please tell me the temperature."
 
-    # L0-L3: lightweight layers
+    ctx = {"tool_name": "get_weather", "permission": "read"}
+
+    # L0-L3: lightweight layers (all pre-API)
     light_times = []
     for _ in range(n_iterations):
         start = time.monotonic()
         run_governance_stack(text, {"L0_bare_loop", "L1_tool_dispatch",
                                      "L2_context_mgmt", "L3_observability"},
-                              {"tool_name": "get_weather", "permission": "read"})
+                              ctx, phase="pre")
         light_times.append((time.monotonic() - start) * 1e6)  # microseconds
 
-    # L0-L8: all layers
+    # L0-L8: all layers. Pre-API phase on the prompt + post-API phase (L6) on a
+    # representative response — mirrors how the runner splits the two phases so
+    # L6 is counted once, on output, not double-applied to the input.
+    all_layers = set(LAYER_REGISTRY.keys())
     full_times = []
     for _ in range(n_iterations):
         start = time.monotonic()
-        run_governance_stack(text, set(LAYER_REGISTRY.keys()),
-                              {"tool_name": "get_weather", "permission": "read"})
+        run_governance_stack(text, all_layers, ctx, phase="pre")
+        run_governance_stack(text, all_layers, ctx, phase="post")
         full_times.append((time.monotonic() - start) * 1e6)
 
     # Event serialization

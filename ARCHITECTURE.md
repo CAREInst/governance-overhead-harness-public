@@ -35,7 +35,7 @@ experiment_runner_v3.py  LiveExperimentRunner: the per-call measurement loop
         │
         ▼
 analysis_v4.py           statistics + paper tables from the JSONL
-keystore.py              SQLCipher credentials, loaded into env at run time
+make_data_summary.py     compact per-config digest of the JSONL
 ```
 
 ## Data flow
@@ -78,8 +78,8 @@ uses one external gateway. Any other name uses a native adapter.
 
 The OpenRouter path is gated. It refuses to send unless the operator opens the
 gate. The gate opens only when two things are true: the run uses
-`--allow-external`, and an API key is loaded from the keystore. A local smoke
-never touches the gate.
+`--allow-external`, and an API key is present in the `OPENROUTER_API_KEY`
+environment variable. A local smoke never touches the gate.
 
 ## Cost and the budget cap
 
